@@ -62,6 +62,7 @@ class Matrix extends Field implements FieldInterface
         foreach ($this->feedData as $nodePath => $value) {
             // Get the field mapping info for this node in the feed
             $fieldInfo = $this->_getFieldMappingInfoForNodePath($nodePath, $blocks);
+            // error_log(print_r($fieldInfo, 1) . PHP_EOL, 3, '/var/www/zucchettikos.gigadesignstudio.com/admin/storage/logs/feed-me-debug.log');
 
             // If this is data concerning our Matrix field and blocks
             if ($fieldInfo) {
@@ -79,7 +80,24 @@ class Matrix extends Field implements FieldInterface
                     $blockIndex = Hash::get($nodePathSegments, 2);
 
                     if (!is_numeric($blockIndex)) {
-                        $blockIndex = 0;
+                        $blockIndex = Hash::get($nodePathSegments, 3);
+
+                        if (!is_numeric($blockIndex)) {
+                            $blockIndex = Hash::get($nodePathSegments, 4);
+
+                            if (!is_numeric($blockIndex)) {
+                                $blockIndex = 0;
+                            }
+                        }
+                    }
+                }
+                if ($blockHandle == 'part') {
+                    for ($i = count($nodePathSegments) - 1; $i >= 0; $i--) {
+                        if (is_numeric($nodePathSegments[$i])) {
+                            $blockIndex = $nodePathSegments[$i];
+                            // error_log("Overridden $blockIndex = " . $blockIndex, 3, '/var/www/zucchettikos.gigadesignstudio.com/admin/storage/logs/feed-me-debug.log');
+                            break;
+                        }
                     }
                 }
 
@@ -89,9 +107,14 @@ class Matrix extends Field implements FieldInterface
                 // sub-fields, and doesn't have data directly mapped to the field itself. It needs to be
                 // accumulated here (so its in the right order), but grouped based on the field and block
                 // its in. A bit annoying, but no better ideas...
-                if ($isComplexField) {
+                // if ($isComplexField) {
+                if ($isComplexField || $blockHandle == 'part') {
+                    $complexFields[$key]['handle'] = $blockHandle;
                     $complexFields[$key]['info'] = $subFieldInfo;
                     $complexFields[$key]['data'][$nodePath] = $value;
+                    // error_log("complexField key = " . print_r($key, 1), 3, '/var/www/zucchettikos.gigadesignstudio.com/admin/storage/logs/feed-me-debug.log');
+                    // error_log("    => " . "nodePath key = " . print_r($nodePath, 1), 3, '/var/www/zucchettikos.gigadesignstudio.com/admin/storage/logs/feed-me-debug.log');
+                    // error_log(PHP_EOL, 3, '/var/www/zucchettikos.gigadesignstudio.com/admin/storage/logs/feed-me-debug.log');
                     continue;
                 }
 
@@ -110,6 +133,7 @@ class Matrix extends Field implements FieldInterface
                 }
             }
         }
+        // error_log(PHP_EOL, 3, '/var/www/zucchettikos.gigadesignstudio.com/admin/storage/logs/feed-me-debug.log');
 
         // Handle some complex fields that don't directly have nodes, but instead have nested properties mapped.
         // They have their mapping setup on sub-fields, and need to be processed all together, which we've already prepared.
@@ -121,17 +145,79 @@ class Matrix extends Field implements FieldInterface
 
             $subFieldInfo = Hash::get($complexInfo, 'info');
             $nodePaths = Hash::get($complexInfo, 'data');
+            $handle = Hash::get($complexInfo, 'handle');
 
-            $parsedValue = $this->_parseSubField($nodePaths, $subFieldHandle, $subFieldInfo);
 
-            if (isset($fieldData[$key])) {
-                $fieldData[$key] = array_merge_recursive($fieldData[$key], $parsedValue);
+
+
+            // $parsedValue = $this->_parseSubField($nodePaths, $subFieldHandle, $subFieldInfo);
+            // https://github.com/craftcms/feed-me/discussions/889#discussioncomment-1169950
+            // La riga da sostituire sembrerebbe essere diventata la 126, non la 113 come indicato da lui nel commento
+            // HACK START
+            // error_log(print_r($complexInfo, 1), 3, '/var/www/zucchettikos.gigadesignstudio.com/admin/storage/logs/feed-me-debug.log');
+            // error_log(PHP_EOL, 3, '/var/www/zucchettikos.gigadesignstudio.com/admin/storage/logs/feed-me-debug.log');
+
+            // error_log("HACK START" . PHP_EOL, 3, '/var/www/zucchettikos.gigadesignstudio.com/admin/storage/logs/feed-me-debug.log');
+            $nodePathsArray = [];
+            foreach ($nodePaths as $nodePathKey => $nodePathVal) {
+                // Get the node number
+                $pathArray = explode("/", $nodePathKey);
+                $nodeNumber = $pathArray[count($pathArray) - 2];
+                $nodePathsArray[$nodeNumber][$nodePathKey] = $nodePathVal;
+            }
+            // error_log(print_r($nodePathsArray, 1), 3, '/var/www/zucchettikos.gigadesignstudio.com/admin/storage/logs/feed-me-debug.log');
+
+            $i = 1;
+            $parsedValue = array();
+            foreach ($nodePathsArray as $nodePathsArrayKey => $nodePathsArrayValue) {
+                $parsedValueTemp = $this->_parseSubField($nodePathsArrayValue, $subFieldHandle, $subFieldInfo);
+                // error_log("nodePathsArrayValue = " . print_r($nodePathsArrayValue, 1), 3, '/var/www/zucchettikos.gigadesignstudio.com/admin/storage/logs/feed-me-debug.log');
+                // error_log(PHP_EOL, 3, '/var/www/zucchettikos.gigadesignstudio.com/admin/storage/logs/feed-me-debug.log');
+                // error_log("subFieldHandle = " . print_r($subFieldHandle, 1), 3, '/var/www/zucchettikos.gigadesignstudio.com/admin/storage/logs/feed-me-debug.log');
+                // error_log(PHP_EOL, 3, '/var/www/zucchettikos.gigadesignstudio.com/admin/storage/logs/feed-me-debug.log');
+                // error_log("subFieldInfo = " . print_r($subFieldInfo, 1), 3, '/var/www/zucchettikos.gigadesignstudio.com/admin/storage/logs/feed-me-debug.log');
+                // error_log(PHP_EOL, 3, '/var/www/zucchettikos.gigadesignstudio.com/admin/storage/logs/feed-me-debug.log');
+                // error_log("parsedValueTemp = " . print_r($parsedValueTemp, 1), 3, '/var/www/zucchettikos.gigadesignstudio.com/admin/storage/logs/feed-me-debug.log');
+                // error_log(PHP_EOL, 3, '/var/www/zucchettikos.gigadesignstudio.com/admin/storage/logs/feed-me-debug.log');
+
+                // $parsedValue["new".$i] = reset($parsedValueTemp);
+                $parsedValue["new" . $i] = is_array($parsedValueTemp) ? reset($parsedValueTemp) : $parsedValueTemp;
+                // error_log("parsedValue[new" . $i . "] = " . print_r($parsedValue["new".$i], 1), 3, '/var/www/zucchettikos.gigadesignstudio.com/admin/storage/logs/feed-me-debug.log');
+                // error_log(PHP_EOL, 3, '/var/www/zucchettikos.gigadesignstudio.com/admin/storage/logs/feed-me-debug.log');
+                $i++;
+            }
+            // error_log("HACK END" . PHP_EOL, 3, '/var/www/zucchettikos.gigadesignstudio.com/admin/storage/logs/feed-me-debug.log');
+            // error_log(PHP_EOL, 3, '/var/www/zucchettikos.gigadesignstudio.com/admin/storage/logs/feed-me-debug.log');
+            // HACK END
+
+
+
+            // il problema è qua. lui genera un unico merged array con dentro 3 valori array,
+            // anziché creare 3 sottonodi con un valore ciascuno
+            if ($handle == 'part') {
+                // error_log($subFieldInfo . PHP_EOL, 3, '/var/www/zucchettikos.gigadesignstudio.com/admin/storage/logs/feed-me-debug.log');
+                if (isset($fieldData[$key])) {
+                    $fieldData[$key] = array_merge_recursive($fieldData[$key], reset($parsedValue));
+                } else {
+                    if ($subFieldHandle === 'finishing') {
+                        $fieldData[$key] = $parsedValue;
+                    } else {
+                        $fieldData[$key] = reset($parsedValue);
+                    }
+                }
             } else {
-                $fieldData[$key] = $parsedValue;
+                if (isset($fieldData[$key])) {
+                    $fieldData[$key] = array_merge_recursive($fieldData[$key], $parsedValue);
+                } else {
+                    $fieldData[$key] = $parsedValue;
+                }
             }
         }
 
         ksort($fieldData, SORT_NUMERIC);
+        // error_log("fieldData" . PHP_EOL, 3, '/var/www/zucchettikos.gigadesignstudio.com/admin/storage/logs/feed-me-debug.log');
+        // error_log(print_r($fieldData, 1), 3, '/var/www/zucchettikos.gigadesignstudio.com/admin/storage/logs/feed-me-debug.log');
+        // error_log(PHP_EOL, 3, '/var/www/zucchettikos.gigadesignstudio.com/admin/storage/logs/feed-me-debug.log');
 
         // $order = 0;
 
@@ -153,6 +239,9 @@ class Matrix extends Field implements FieldInterface
             $preppedData[$blockIndex . '.collapsed'] = $collapsed;
             $preppedData[$blockIndex . '.fields.' . $subFieldHandle] = $value;
         }
+        // error_log("preppedData" . PHP_EOL, 3, '/var/www/zucchettikos.gigadesignstudio.com/admin/storage/logs/feed-me-debug.log');
+        // error_log(print_r($preppedData, 1), 3, '/var/www/zucchettikos.gigadesignstudio.com/admin/storage/logs/feed-me-debug.log');
+        // error_log(PHP_EOL, 3, '/var/www/zucchettikos.gigadesignstudio.com/admin/storage/logs/feed-me-debug.log');
 
         $expanded = Hash::expand($preppedData);
 
