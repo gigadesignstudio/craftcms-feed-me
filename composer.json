@@ -1,5 +1,5 @@
 {
-  "name": "gigadesignstudio/craftcms-feed-me",
+  "name": "craftcms/feed-me",
   "description": "Import content from XML, RSS, CSV or JSON feeds into entries, categories, Craft Commerce products, and more.",
   "type": "craft-plugin",
   "keywords": [
@@ -8,14 +8,26 @@
     "craftcms",
     "feed me"
   ],
-  "homepage": "https://github.com/gigadesignstudio/craftcms-feed-me",
-  "license": "MIT",
+  "license": "proprietary",
   "authors": [
     {
-      "name": "GigaDesignStudio",
-      "homepage": "https://gigadesignstudio.com"
+      "name": "Pixel & Tonic",
+      "homepage": "https://pixelandtonic.com/"
+    },
+    {
+      "name": "Verbb",
+      "homepage": "https://verbb.io"
     }
   ],
+  "support": {
+    "email": "support@craftcms.com",
+    "issues": "https://github.com/craftcms/feed-me/issues?state=open",
+    "source": "https://github.com/craftcms/feed-me",
+    "docs": "https://docs.craftcms.com/feed-me/v4/",
+    "rss": "https://github.com/craftcms/feed-me/commits/master.atom"
+  },
+  "minimum-stability": "dev",
+  "prefer-stable": true,
   "require": {
     "php": "^8.0.2",
     "craftcms/cms": "^4.0.0-RC2",
@@ -40,6 +52,11 @@
     "psr-4": {
       "craft\\feedme\\tests\\": "tests/"
     }
+  },
+  "extra": {
+    "name": "Feed Me",
+    "handle": "feed-me",
+    "documentationUrl": "https://docs.craftcms.com/feed-me/v4/"
   },
   "scripts": {
     "check-cs": "ecs check --ansi",
