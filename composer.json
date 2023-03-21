@@ -8,30 +8,14 @@
     "craftcms",
     "feed me"
   ],
-  "license": "proprietary",
+  "homepage": "https://github.com/gigadesignstudio/craftcms-feed-me",
+  "license": "MIT",
   "authors": [
-    {
-      "name": "Pixel & Tonic",
-      "homepage": "https://pixelandtonic.com/"
-    },
-    {
-      "name": "Verbb",
-      "homepage": "https://verbb.io"
-    },
     {
       "name": "GigaDesignStudio",
       "homepage": "https://gigadesignstudio.com"
     }
   ],
-  "support": {
-    "email": "support@craftcms.com",
-    "issues": "https://github.com/craftcms/feed-me/issues?state=open",
-    "source": "https://github.com/craftcms/feed-me",
-    "docs": "https://docs.craftcms.com/feed-me/v4/",
-    "rss": "https://github.com/craftcms/feed-me/commits/master.atom"
-  },
-  "minimum-stability": "dev",
-  "prefer-stable": true,
   "require": {
     "php": "^8.0.2",
     "craftcms/cms": "^4.0.0-RC2",
@@ -56,11 +40,6 @@
     "psr-4": {
       "craft\\feedme\\tests\\": "tests/"
     }
-  },
-  "extra": {
-    "name": "Feed Me",
-    "handle": "feed-me",
-    "documentationUrl": "https://docs.craftcms.com/feed-me/v4/"
   },
   "scripts": {
     "check-cs": "ecs check --ansi",
