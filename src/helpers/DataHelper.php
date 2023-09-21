@@ -19,6 +19,26 @@ class DataHelper
     // =========================================================================
 
     /**
+     * Check if provided value is not set or empty or an array of empties
+     *
+     * @param $value
+     * @param $allowZero bool Whether to treat zero as an empty value or not
+     * @return bool
+     */
+    public static function isArrayValueEmpty($value, $allowZero = false): bool
+    {
+        return (!$value ||
+            (is_array($value) && empty(array_filter($value, function($item) use ($allowZero): bool {
+                if ($allowZero) {
+                    return (!empty($item) || is_numeric($item));
+                }
+
+                return !empty($item);
+            })))
+        );
+    }
+
+    /**
      * @param $feedData
      * @param $fieldInfo
      * @return array|ArrayAccess|mixed|string|null
@@ -33,7 +53,7 @@ class DataHelper
         $value = $feedData[$node] ?? null;
 
         // Use the default value for the field-mapping (if defined)
-        if ($value === null || $value === '') {
+        if (($value === null || $value === '') && !empty($default)) {
             $value = $default;
         }
 
@@ -51,7 +71,7 @@ class DataHelper
      */
     public static function fetchArrayValue($feedData, $fieldInfo): mixed
     {
-        $value = [];
+        $value = null;
 
         $node = Hash::get($fieldInfo, 'node');
 
@@ -75,6 +95,12 @@ class DataHelper
                     // Trim values in case whitespace was used between delimiter
                     $delimitedValues = array_map('trim', $delimitedValues);
 
+                    // we need the value to start as null for setEmptyValues
+                    // but we also need it to be an array at this point so that array_merge doesn't freak out
+                    // so if it's null so far, change it to an empty array as we're about to populate it with data
+                    if ($value === null) {
+                        $value = [];
+                    }
                     $value = array_merge($value, $delimitedValues);
                 } else {
                     $value[] = $nodeValue;
@@ -116,21 +142,20 @@ class DataHelper
     /**
      * @param $feedData
      * @param $fieldInfo
-     * @param array|FeedModel $feed
+     * @param array|FeedModel|null $feed
      * @return array|ArrayAccess|mixed|null
      */
-    public static function fetchValue($feedData, $fieldInfo, $feed): mixed
+    public static function fetchValue($feedData, $fieldInfo, $feed = null): mixed
     {
         // $feed will be a FeedModel when calling `fetchValue` from an element
         if ($feed instanceof FeedModel) {
             $feed = $feed->toArray();
         }
 
-        $value = [];
+        $value = null;
 
         $node = Hash::get($fieldInfo, 'node');
         $default = Hash::get($fieldInfo, 'default');
-
         $dataDelimiter = Plugin::$plugin->service->getConfig('dataDelimiter');
 
         // Some fields require array, or multiple values like Elements, Checkboxes, etc., and we need to parse them differently.
@@ -155,6 +180,12 @@ class DataHelper
                     // Trim values in case whitespace was used between delimiter
                     $delimitedValues = array_map('trim', $delimitedValues);
 
+                    // we need the value to start as null for setEmptyValues
+                    // but we also need it to be an array at this point so that array_merge doesn't freak out
+                    // so if it's null so far, change it to an empty array as we're about to populate it with data
+                    if ($value === null) {
+                        $value = [];
+                    }
                     $value = array_merge($value, $delimitedValues);
                 } else {
                     $value[] = $nodeValue;
@@ -162,30 +193,30 @@ class DataHelper
             }
         }
 
-        // Help to normalise things if an array with only one item. Probably a better idea to offload this to each
-        // attribute of field definition, as it's quite an assumption at this point...
-        if (count($value) === 1) {
-            $value = $value[0];
-        }
-
         // Check if not importing, just using default
         if ($node === 'usedefault' && !$value) {
             $value = $default;
         }
 
-        // If setEmptyValues is enabled allow overwriting existing data
-        if ($value === "" && $feed['setEmptyValues']) {
-            return $value;
+        // if value is still null - return
+        if ($value === null) {
+            return null;
+        }
+
+        // Help to normalise things if an array with only one item. Probably a better idea to offload this to each
+        // attribute of field definition, as its quite an assumption at this point...
+        if (is_array($value) && count($value) === 1) {
+            $value = $value[0];
         }
 
         // If setEmptyValues is enabled allow overwriting existing data
-        if ($value === "" && $feed['setEmptyValues']) {
+        if ($feed !== null && $value === "" && $feed['setEmptyValues']) {
             return $value;
         }
 
         // We want to preserve 0 and '0', but if it's empty, return null.
         // https://github.com/craftcms/feed-me/issues/779
-        if (!is_numeric($value) && empty($value)) {
+        if (!is_numeric($value) && !is_bool($value) && empty($value)) {
             return null;
         }
 
@@ -226,6 +257,9 @@ class DataHelper
 
         $fields = $element->getSerializedFieldValues();
         $attributes = $element->attributes;
+        if (isset($attributes['enabled'])) {
+            $attributes['enabledForSite'] = $element->getEnabledForSite();
+        }
 
         foreach ($content as $key => $newValue) {
             $existingValue = Hash::get($fields, $key);
@@ -247,6 +281,12 @@ class DataHelper
 
             // Check for simple fields first
             if (self::_compareSimpleValues($fields, $key, $existingValue, $newValue)) {
+                unset($trackedChanges[$key]);
+                continue;
+            }
+            
+            // Check for complex fields
+            if (self::_compareComplexValues($fields, $key, $existingValue, $newValue)) {
                 unset($trackedChanges[$key]);
                 continue;
             }
@@ -383,6 +423,72 @@ class DataHelper
 
             // An array, but loosely equal
             return true;
+        }
+
+        // Didn't match
+        return false;
+    }
+    
+    /**
+     * Compare values recursively while ignoring property order and null values
+     *
+     * @param mixed $firstValue
+     * @param mixed $secondValue
+     * @return bool
+     */
+    private static function _recursiveCompare($firstValue, $secondValue): bool
+    {
+        if (is_array($firstValue) && is_array($secondValue)) {
+            // Ignore values that are `null` or empty arrays
+            $firstValue = array_filter($firstValue, static function($value) {
+                return !($value === null || $value === []);
+            });
+            $secondValue = array_filter($secondValue, static function($value) {
+                return !($value === null || $value === []);
+            });
+
+            // Both values must have the same keys (ignoring order)
+            $firstKeys = array_keys($firstValue);
+            $secondKeys = array_keys($secondValue);
+            if (count(array_diff($firstKeys, $secondKeys)) || count(array_diff($secondKeys, $firstKeys))) {
+                return false;
+            }
+
+            // Each key must be the same value
+            foreach ($firstValue as $key => $value) {
+                if (!self::_recursiveCompare($value, $secondValue[$key])) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        if (is_object($firstValue) && is_object($secondValue)) {
+            // For now this does not seem relevant
+            return false;
+        }
+
+        return $firstValue === $secondValue;
+    }
+
+    private static function _compareComplexValues($fields, $key, $firstValue, $secondValue): bool
+    {
+        // When the values are nested arrays we are probably comparing matrix elements
+        if (Hash::check($fields, $key)
+            && is_array($firstValue)
+            && is_array($secondValue)
+            && array_reduce($firstValue, static function($carry, $item) {
+                return $carry && is_array($item);
+            }, true)
+            && array_reduce($secondValue, static function($carry, $item) {
+                return $carry && is_array($item);
+            }, true)
+        ) {
+            // Compare the values recursively while ignoring the keys at the first level,
+            // these keys are statically set to `'newX'` and the ids for the values in the database
+            // so they have no meaning here
+            return self::_recursiveCompare(array_values($firstValue), array_values($secondValue));
         }
 
         // Didn't match

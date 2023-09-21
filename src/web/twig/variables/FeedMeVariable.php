@@ -17,6 +17,7 @@ use craft\fields\PlainText;
 use craft\fields\RadioButtons;
 use craft\fields\Url;
 use craft\helpers\DateTimeHelper;
+use craft\helpers\Html;
 use craft\helpers\UrlHelper;
 use craft\models\CategoryGroup;
 use craft\models\Section;
@@ -93,7 +94,7 @@ class FeedMeVariable extends ServiceLocator
                     continue;
                 }
 
-                $values[$value[$index]] = $value[$label];
+                $values[$value[$index]] = Html::encode($value[$label]);
             }
         }
 
@@ -293,6 +294,10 @@ class FeedMeVariable extends ServiceLocator
     {
         $type = $field['type'] ?? 'attribute';
 
+        if (isset($field['type']) && $field['handle'] === 'parent') {
+            $type = 'parent';
+        }
+
         if (is_object($field)) {
             $type = get_class($field);
         }
@@ -314,6 +319,7 @@ class FeedMeVariable extends ServiceLocator
         $supportedValues = [
             'assets',
             'attribute',
+            'parent',
         ];
 
         $supported = array_merge($supportedFields, $supportedValues);
@@ -344,6 +350,8 @@ class FeedMeVariable extends ServiceLocator
             Number::class,
             PlainText::class,
             RadioButtons::class,
+            'craft\ckeditor\Field',
+            'craft\redactor\Field',
         ];
 
         return in_array($class, $supportedSubFields, true);

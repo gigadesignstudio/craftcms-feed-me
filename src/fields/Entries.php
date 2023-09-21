@@ -9,6 +9,7 @@ use craft\elements\Entry as EntryElement;
 use craft\errors\ElementNotFoundException;
 use craft\feedme\base\Field;
 use craft\feedme\base\FieldInterface;
+use craft\feedme\helpers\DataHelper;
 use craft\feedme\Plugin;
 use craft\fields\Entries as EntriesField;
 use craft\helpers\Db;
@@ -62,14 +63,29 @@ class Entries extends Field implements FieldInterface
         $value = $this->fetchArrayValue();
         $default = $this->fetchDefaultArrayValue();
 
+        // if the mapped value is not set in the feed
+        if ($value === null) {
+            return null;
+        }
+
+        $match = Hash::get($this->fieldInfo, 'options.match', 'title');
+        $specialMatchCase = in_array($match, ['title', 'slug']);
+
+        // if value from the feed is empty and default is not set
+        // return an empty array; no point bothering further;
+        // but we need to allow for zero as a string ("0") value if we're matching by title or slug
+        if (empty($default) && DataHelper::isArrayValueEmpty($value, $specialMatchCase)) {
+            return [];
+        }
+
         $sources = Hash::get($this->field, 'settings.sources');
         $limit = Hash::get($this->field, 'settings.limit');
         $targetSiteId = Hash::get($this->field, 'settings.targetSiteId');
         $feedSiteId = Hash::get($this->feed, 'siteId');
-        $match = Hash::get($this->fieldInfo, 'options.match', 'title');
         $create = Hash::get($this->fieldInfo, 'options.create');
         $fields = Hash::get($this->fieldInfo, 'fields');
         $node = Hash::get($this->fieldInfo, 'node');
+        $nodeKey = null;
 
         $sectionIds = [];
 
@@ -91,13 +107,10 @@ class Entries extends Field implements FieldInterface
 
         $foundElements = [];
 
-        if (!$value) {
-            return $foundElements;
-        }
-
         foreach ($value as $dataValue) {
             // Prevent empty or blank values (string or array), which match all elements
-            if (empty($dataValue) && empty($default)) {
+            // but sometimes allow for zeros
+            if (empty($dataValue) && empty($default) && ($specialMatchCase && !is_numeric($dataValue))) {
                 continue;
             }
 
@@ -109,7 +122,7 @@ class Entries extends Field implements FieldInterface
 
             // special provision for falling back on default BaseRelationField value
             // https://github.com/craftcms/feed-me/issues/1195
-            if (empty($dataValue)) {
+            if (trim($dataValue) === '') {
                 $foundElements = $default;
                 break;
             }
@@ -156,6 +169,8 @@ class Entries extends Field implements FieldInterface
             if ((count($ids) == 0) && $create && $match === 'title') {
                 $foundElements[] = $this->_createElement($dataValue);
             }
+
+            $nodeKey = $this->getArrayKeyFromNode($node);
         }
 
         // Check for field limit - only return the specified amount
@@ -165,7 +180,7 @@ class Entries extends Field implements FieldInterface
 
         // Check for any sub-fields for the element
         if ($fields) {
-            $this->populateElementFields($foundElements);
+            $this->populateElementFields($foundElements, $nodeKey);
         }
 
         $foundElements = array_unique($foundElements);

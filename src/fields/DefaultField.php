@@ -46,6 +46,10 @@ class DefaultField extends Field implements FieldInterface
     {
         $value = $this->fetchValue();
 
+        if ($value === null) {
+            return null;
+        }
+
         // Default fields expect strings, if it's an array for an odd reason, serialise it
         if (is_array($value)) {
             if (empty($value)) {
@@ -59,6 +63,13 @@ class DefaultField extends Field implements FieldInterface
         // null, which means it won't get imported. Sometimes we want to have empty strings
         if ($value !== '') {
             $value = $this->field->normalizeValue($value);
+        }
+
+        // if we're setting empty values and the value is an empty string - return it
+        // otherwise HtmlField will serialize it to null, and we setEmptyValues won't take effect
+        // https://github.com/craftcms/feed-me/issues/1321
+        if ($this->feed['setEmptyValues'] === 1 && $value === '') {
+            return $value;
         }
 
         // Lastly, get each field to prepare values how they should
