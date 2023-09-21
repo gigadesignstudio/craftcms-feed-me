@@ -132,8 +132,6 @@ class Matrix extends Field implements FieldInterface
             $handle = Hash::get($complexInfo, 'handle');
 
 
-
-
             // $parsedValue = $this->_parseSubField($nodePaths, $subFieldHandle, $subFieldInfo);
             // https://github.com/craftcms/feed-me/discussions/889#discussioncomment-1169950
             // La riga da sostituire sembrerebbe essere diventata la 126, non la 113 come indicato da lui nel commento
@@ -298,24 +296,6 @@ class Matrix extends Field implements FieldInterface
         }
 
         return $blockIndex . '.' . $blockHandle . '.' . $subFieldHandle;
-
-
-        /*
-
-        $blockIndex = Hash::get($nodePathSegments, 1);
-
-        if (!is_numeric($blockIndex)) {
-            // Try to check if its only one-level deep (only importing one block type)
-            // which is particularly common for JSON.
-            $blockIndex = Hash::get($nodePathSegments, 2);
-
-            if (!is_numeric($blockIndex)) {
-                $blockIndex = 0;
-            }
-        }
-
-        return $blockIndex . '.' . $blockHandle . '.' . $fieldHandle;
-        */
     }
 
     /**
